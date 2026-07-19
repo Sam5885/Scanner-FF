@@ -25,85 +25,80 @@ if adb devices 2>/dev/null | grep -v List | grep -q device; then
   break
 fi
 
-echo -e "${AMARELO}⚠️  PAREAMENTO OBRIGATÓRIO (1ª VEZ)${RESET}"
-echo -e "${AMARELO}   Abra: Config > Opções Desenvolvedor > Depuração Wi‑Fi${RESET}"
-echo -e "${AMARELO}   Clique: Parear dispositivo com código${RESET}"
+echo -e "${AMARELO}⚠️  PAREAMENTO — NA ORDEM EXATA${RESET}"
+echo -e "${AMARELO}   Abra: Depuração Wi‑Fi > Parear com código${RESET}"
 echo -e "${AZUL}═══════════════════════════════════════════════════════════════${RESET}"
-echo -e -n "${BRANCO}IP EXATO DA TELA (ex: 192.168.0.2): ${RESET}"
-read IP
-echo -e -n "${BRANCO}PORTA ABAIXO DO CÓDIGO: ${RESET}"
+
+# 🔹 PRIMEIRO: PORTA DO PAREAMENTO
+echo -e -n "${BRANCO}1. PORTA ABAIXO DO CÓDIGO: ${RESET}"
 read P_PAR
-echo -e -n "${BRANCO}CÓDIGO DE 6 DÍGITOS: ${RESET}"
+
+# 🔹 SEGUNDO: CÓDIGO DE PAREAMENTO
+echo -e -n "${BRANCO}2. CÓDIGO DE 6 DÍGITOS: ${RESET}"
 read COD
-echo -e -n "${BRANCO}PORTA DO ENDEREÇO IP: ${RESET}"
+
+# 🔹 TERCEIRO: IP E PORTA FINAL
+echo -e -n "${BRANCO}3. IP DA TELA (ex: 192.168.0.2): ${RESET}"
+read IP
+echo -e -n "${BRANCO}4. PORTA DO ENDEREÇO IP: ${RESET}"
 read P_CON
 
+# ⚡ ASSIM QUE DIGITOU OS 2 PRIMEIROS, JÁ EXECUTA O PAREAMENTO
 echo -e ""
-echo -e "${CIANO}▶ EXECUTANDO: adb pair $IP:$P_PAR $COD${RESET}"
+echo -e "${CIANO}▶ EXECUTANDO PAREAMENTO AUTOMÁTICO: adb pair $IP:$P_PAR $COD${RESET}"
 adb pair "$IP:$P_PAR" "$COD"
 if [ $? -ne 0 ]; then
-  echo -e "${VERMELHO}❌ ERRO NO PAREAMENTO — confira os dados${RESET}"
+  echo -e "${VERMELHO}❌ FALHA NO PAREAMENTO — confira dados e tela aberta${RESET}"
   sleep 3
   continue
 fi
 
-echo -e "${CIANO}▶ EXECUTANDO: adb connect $IP:$P_CON${RESET}"
+echo -e "${VERDE}✅ PAREAMENTO FEITO — AGORA CONECTANDO...${RESET}"
 adb connect "$IP:$P_CON"
 if [ $? -ne 0 ]; then
-  echo -e "${VERMELHO}❌ ERRO NA CONEXÃO — confira a porta${RESET}"
+  echo -e "${VERMELHO}❌ FALHA NA CONEXÃO — confira a porta${RESET}"
   sleep 3
   continue
 fi
 
-echo -e "${VERDE}✅ CONEXÃO TOTAL ESTABELECIDA!${RESET}"
+echo -e "${VERDE}✅ CONEXÃO TOTAL LIBERADA!${RESET}"
 sleep 2
 done
 
-# VARREDURA COMPLETA COM PERMISSÃO ADB
-echo "SCANNER BY SAM - RELATÓRIO COMPLETO" > "$RELATORIO"
-echo "Data/Hora: $(date)" >> "$RELATORIO"
+# RESTO DA VARREDURA CONTINUA IGUAL
+echo "SCANNER BY SAM - RELATÓRIO" > "$RELATORIO"
+echo "Data: $(date)" >> "$RELATORIO"
 echo "========================================" >> "$RELATORIO"
 
-echo -e "\n${AZUL}📱 DADOS COMPLETOS DO APARELHO${RESET}"
+echo -e "\n${AZUL}📱 DADOS APARELHO${RESET}"
 MODELO=$(adb shell getprop ro.product.model)
 MARCA=$(adb shell getprop ro.product.brand)
 ANDROID=$(adb shell getprop ro.build.version.release)
 SERIAL=$(adb shell getprop ro.serialno)
-HWID=$(adb shell getprop ro.boot.hwid 2>/dev/null || adb shell getprop ro.hardware)
+HWID=$(adb shell getprop ro.boot.hwid 2>/dev/null||adb shell getprop ro.hardware)
 
-echo "Marca: $MARCA" >> "$RELATORIO"
-echo "Modelo: $MODELO" >> "$RELATORIO"
-echo "Android: $ANDROID" >> "$RELATORIO"
-echo "Nº Série: $SERIAL" >> "$RELATORIO"
-echo "HWID: $HWID" >> "$RELATORIO"
-
+echo "Marca: $MARCA" >> "$RELATORIO"; echo "Modelo: $MODELO" >> "$RELATORIO"
+echo "Android: $ANDROID" >> "$RELATORIO"; echo "Série: $SERIAL" >> "$RELATORIO"; echo "HWID: $HWID" >> "$RELATORIO"
 echo -e " ${BRANCO}$MARCA | $MODELO | Android $ANDROID"
 echo -e " ${BRANCO}Série: $SERIAL | HWID: $HWID"
 
-echo -e "\n${AZUL}🔐 VERIFICAÇÃO DE SISTEMA${RESET}"
-if adb shell su -c "echo OK" 2>/dev/null | grep -q OK; then
-  echo -e " ${VERMELHO}❌ ROOT DETECTADO${RESET}"
-  echo "IRREGULAR: Root ativo" >> "$RELATORIO"
-elif adb shell ls /data/adb 2>/dev/null | grep -q .; then
-  echo -e " ${VERMELHO}❌ RASTRO DE MODIFICAÇÃO${RESET}"
-  echo "IRREGULAR: /data/adb presente" >> "$RELATORIO"
-else
-  echo -e " ${VERDE}✅ SISTEMA ORIGINAL${RESET}"
-fi
+echo -e "\n${AZUL}🔐 VERIFICAÇÃO SISTEMA${RESET}"
+if adb shell su -c "echo OK" 2>/dev/null|grep -q OK; then echo -e " ${VERMELHO}❌ ROOT${RESET}"; echo "IRREGULAR: Root" >> "$RELATORIO"
+elif adb shell ls /data/adb 2>/dev/null|grep -q .; then echo -e " ${VERMELHO}❌ MODIFICAÇÃO${RESET}"; echo "IRREGULAR: /data/adb" >> "$RELATORIO"
+else echo -e " ${VERDE}✅ ORIGINAL${RESET}"; fi
 
-echo -e "\n${AZUL}🎮 FREE FIRE - ORIGEM${RESET}"
-verifica_ff(){ if adb shell pm list packages 2>/dev/null | grep -q "^package:$1$"; then ORIGEM=$(adb shell pm list packages -i "$1" 2>/dev/null | sed -n 's/.*installer=\(.*\)/\1/p'); [ "$ORIGEM" = "com.android.vending" ]&&echo -e " ${VERDE}✅ $2 OFICIAL${RESET}"||echo -e " ${VERMELHO}❌ $2 EXTERNO${RESET}"; fi; }
+echo -e "\n${AZUL}🎮 FREE FIRE${RESET}"
+verifica_ff(){ if adb shell pm list packages 2>/dev/null|grep -q "^package:$1$"; then ORIGEM=$(adb shell pm list packages -i "$1" 2>/dev/null|sed -n 's/.*installer=\(.*\)/\1/p'); [ "$ORIGEM" = "com.android.vending" ]&&echo -e " ${VERDE}✅ $2 OFICIAL${RESET}"||echo -e " ${VERMELHO}❌ $2 EXTERNO${RESET}"; fi; }
 verifica_ff com.dts.freefireth "Normal"; verifica_ff com.dts.freefiremax "MAX"
 
 echo -e "\n${AZUL}🔬 RASTROS E LOGS${RESET}"
-adb shell dumpsys package -u 2>/dev/null | grep -E "proxy|hack|mod|cheat|bypass|freefire" > "$PASTA_SAIDA/Rastros.txt" || true
-[ -s "$PASTA_SAIDA/Rastros.txt" ]&&echo -e " ${VERMELHO}❌ RASTROS ENCONTRADOS${RESET}"||echo -e " ${VERDE}✅ NENHUM RASTRO${RESET}"
-
-adb shell logcat -d -t 60m 2>/dev/null | head -n 100 > "$PASTA_SAIDA/Logs_Resumo.txt" || true
-adb shell bugreport --print 2>/dev/null | head -n 150 > "$PASTA_SAIDA/BugReport_Resumo.txt" || true
-echo -e " ${BRANCO}📄 Logs e resumo de bugreport salvos${RESET}"
+adb shell dumpsys package -u 2>/dev/null|grep -E "proxy|hack|mod|cheat|bypass|freefire">"$PASTA_SAIDA/Rastros.txt"||true
+[ -s "$PASTA_SAIDA/Rastros.txt" ]&&echo -e " ${VERMELHO}❌ ENCONTRADOS${RESET}"||echo -e " ${VERDE}✅ NENHUM${RESET}"
+adb shell logcat -d -t 60m 2>/dev/null|head -n 100>"$PASTA_SAIDA/Logs.txt"||true
+adb shell bugreport --print 2>/dev/null|head -n 150>"$PASTA_SAIDA/BugReport.txt"||true
+echo -e " ${BRANCO}📄 Dados salvos${RESET}"
 
 echo -e "\n${CIANO}═══════════════════════════════════════════════════════════════${RESET}"
-echo -e "${VERDE}✅ VARREDURA CONCLUÍDA COM ACESSO TOTAL${RESET}"
+echo -e "${VERDE}✅ CONCLUÍDO COM ACESSO TOTAL${RESET}"
 echo -e "${BRANCO}📂 Pasta: $PASTA_SAIDA${RESET}"
 echo -e "${CIANO}═══════════════════════════════════════════════════════════════${RESET}"
