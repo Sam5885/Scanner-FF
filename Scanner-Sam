@@ -28,7 +28,6 @@ fi
 echo -e "${AMARELO}⚠️  PAREAMENTO OBRIGATÓRIO (1ª VEZ)${RESET}"
 echo -e "${AMARELO}   Abra: Config > Opções Desenvolvedor > Depuração Wi‑Fi${RESET}"
 echo -e "${AMARELO}   Clique: Parear dispositivo com código${RESET}"
-echo -e "${AMARELO}   Digite abaixo os dados que aparecem na tela:${RESET}"
 echo -e "${AZUL}═══════════════════════════════════════════════════════════════${RESET}"
 echo -e -n "${BRANCO}IP EXATO DA TELA (ex: 192.168.0.2): ${RESET}"
 read IP
@@ -60,9 +59,7 @@ echo -e "${VERDE}✅ CONEXÃO TOTAL ESTABELECIDA!${RESET}"
 sleep 2
 done
 
-# ==============================================
 # VARREDURA COMPLETA COM PERMISSÃO ADB
-# ==============================================
 echo "SCANNER BY SAM - RELATÓRIO COMPLETO" > "$RELATORIO"
 echo "Data/Hora: $(date)" >> "$RELATORIO"
 echo "========================================" >> "$RELATORIO"
@@ -80,44 +77,27 @@ echo "Android: $ANDROID" >> "$RELATORIO"
 echo "Nº Série: $SERIAL" >> "$RELATORIO"
 echo "HWID: $HWID" >> "$RELATORIO"
 
-echo -e " ${BRANCO}Marca: $MARCA"
-echo -e " ${BRANCO}Modelo: $MODELO"
-echo -e " ${BRANCO}Android: $ANDROID"
-echo -e " ${BRANCO}Nº Série: $SERIAL"
-echo -e " ${BRANCO}HWID: $HWID"
+echo -e " ${BRANCO}$MARCA | $MODELO | Android $ANDROID"
+echo -e " ${BRANCO}Série: $SERIAL | HWID: $HWID"
 
 echo -e "\n${AZUL}🔐 VERIFICAÇÃO DE SISTEMA${RESET}"
 if adb shell su -c "echo OK" 2>/dev/null | grep -q OK; then
   echo -e " ${VERMELHO}❌ ROOT DETECTADO${RESET}"
-  echo "IRREGULARIDADE: Root ativo" >> "$RELATORIO"
+  echo "IRREGULAR: Root ativo" >> "$RELATORIO"
 elif adb shell ls /data/adb 2>/dev/null | grep -q .; then
   echo -e " ${VERMELHO}❌ RASTRO DE MODIFICAÇÃO${RESET}"
-  echo "IRREGULARIDADE: /data/adb presente" >> "$RELATORIO"
+  echo "IRREGULAR: /data/adb presente" >> "$RELATORIO"
 else
-  echo -e " ${VERDE}✅ SISTEMA ORIGINAL / ÍNTEGRO${RESET}"
+  echo -e " ${VERDE}✅ SISTEMA ORIGINAL${RESET}"
 fi
 
 echo -e "\n${AZUL}🎮 FREE FIRE - ORIGEM${RESET}"
-verifica_ff() {
-  if adb shell pm list packages 2>/dev/null | grep -q "^package:$1$"; then
-    ORIGEM=$(adb shell pm list packages -i "$1" 2>/dev/null | sed -n 's/.*installer=\(.*\)/\1/p')
-    if [ "$ORIGEM" = "com.android.vending" ]; then
-      echo -e " ${VERDE}✅ $2: PLAY STORE OFICIAL${RESET}"
-      echo "$2: Oficial" >> "$RELATORIO"
-    else
-      echo -e " ${VERMELHO}❌ $2: FONTE EXTERNA${RESET}"
-      echo "$2: $ORIGEM" >> "$RELATORIO"
-    fi
-  else
-    echo -e " ${BRANCO}ℹ️ $2: NÃO INSTALADO${RESET}"
-  fi
-}
-verifica_ff com.dts.freefireth "Free Fire Normal"
-verifica_ff com.dts.freefiremax "Free Fire MAX"
+verifica_ff(){ if adb shell pm list packages 2>/dev/null | grep -q "^package:$1$"; then ORIGEM=$(adb shell pm list packages -i "$1" 2>/dev/null | sed -n 's/.*installer=\(.*\)/\1/p'); [ "$ORIGEM" = "com.android.vending" ]&&echo -e " ${VERDE}✅ $2 OFICIAL${RESET}"||echo -e " ${VERMELHO}❌ $2 EXTERNO${RESET}"; fi; }
+verifica_ff com.dts.freefireth "Normal"; verifica_ff com.dts.freefiremax "MAX"
 
 echo -e "\n${AZUL}🔬 RASTROS E LOGS${RESET}"
 adb shell dumpsys package -u 2>/dev/null | grep -E "proxy|hack|mod|cheat|bypass|freefire" > "$PASTA_SAIDA/Rastros.txt" || true
-[ -s "$PASTA_SAIDA/Rastros.txt" ] && echo -e " ${VERMELHO}❌ RASTROS ENCONTRADOS${RESET}" || echo -e " ${VERDE}✅ NENHUM RASTRO IRREGULAR${RESET}"
+[ -s "$PASTA_SAIDA/Rastros.txt" ]&&echo -e " ${VERMELHO}❌ RASTROS ENCONTRADOS${RESET}"||echo -e " ${VERDE}✅ NENHUM RASTRO${RESET}"
 
 adb shell logcat -d -t 60m 2>/dev/null | head -n 100 > "$PASTA_SAIDA/Logs_Resumo.txt" || true
 adb shell bugreport --print 2>/dev/null | head -n 150 > "$PASTA_SAIDA/BugReport_Resumo.txt" || true
@@ -125,5 +105,5 @@ echo -e " ${BRANCO}📄 Logs e resumo de bugreport salvos${RESET}"
 
 echo -e "\n${CIANO}═══════════════════════════════════════════════════════════════${RESET}"
 echo -e "${VERDE}✅ VARREDURA CONCLUÍDA COM ACESSO TOTAL${RESET}"
-echo -e "${BRANCO}📂 Pasta com arquivos: $PASTA_SAIDA${RESET}"
+echo -e "${BRANCO}📂 Pasta: $PASTA_SAIDA${RESET}"
 echo -e "${CIANO}═══════════════════════════════════════════════════════════════${RESET}"
