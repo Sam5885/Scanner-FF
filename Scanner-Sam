@@ -25,47 +25,53 @@ if adb devices 2>/dev/null | grep -v List | grep -q device; then
   break
 fi
 
-echo -e "${AMARELO}⚠️  PAREAMENTO — NA ORDEM EXATA${RESET}"
-echo -e "${AMARELO}   Abra: Depuração Wi‑Fi > Parear com código${RESET}"
+# ✅ DETECTA O IP AUTOMÁTICO (IGNORA ERRO, PEGA O IP DA REDE LOCAL)
+IP=$(ip -4 addr show wlan0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
+if [ -z "$IP" ]; then
+  IP=$(ip -4 addr show 2>/dev/null | grep -oP '(?<=inet\s)192\.168\.\d+\.\d+' | head -1)
+fi
+if [ -z "$IP" ]; then
+  echo -e "${VERMELHO}❌ NÃO DETECTOU IP — DIGITE MANUAL: ${RESET}"
+  read IP
+fi
+echo -e "${VERDE}✅ IP DETECTADO AUTOMATICAMENTE: $IP${RESET}"
 echo -e "${AZUL}═══════════════════════════════════════════════════════════════${RESET}"
 
-# 🔹 PRIMEIRO: PORTA DO PAREAMENTO
-echo -e -n "${BRANCO}1. PORTA ABAIXO DO CÓDIGO: ${RESET}"
+# 🔹 SÓ PEDE O QUE VOCÊ QUER
+echo -e -n "${BRANCO}1. PORTA DO PAREAMENTO: ${RESET}"
 read P_PAR
 
-# 🔹 SEGUNDO: CÓDIGO DE PAREAMENTO
 echo -e -n "${BRANCO}2. CÓDIGO DE 6 DÍGITOS: ${RESET}"
 read COD
 
-# 🔹 TERCEIRO: IP E PORTA FINAL
-echo -e -n "${BRANCO}3. IP DA TELA (ex: 192.168.0.2): ${RESET}"
-read IP
-echo -e -n "${BRANCO}4. PORTA DO ENDEREÇO IP: ${RESET}"
-read P_CON
-
-# ⚡ ASSIM QUE DIGITOU OS 2 PRIMEIROS, JÁ EXECUTA O PAREAMENTO
+# ⚡ ASSIM QUE TERMINAR O CÓDIGO, JÁ FAZ O PAREAMENTO AUTOMÁTICO
 echo -e ""
 echo -e "${CIANO}▶ EXECUTANDO PAREAMENTO AUTOMÁTICO: adb pair $IP:$P_PAR $COD${RESET}"
 adb pair "$IP:$P_PAR" "$COD"
 if [ $? -ne 0 ]; then
-  echo -e "${VERMELHO}❌ FALHA NO PAREAMENTO — confira dados e tela aberta${RESET}"
+  echo -e "${VERMELHO}❌ FALHA NO PAREAMENTO — confira dados${RESET}"
   sleep 3
   continue
 fi
+echo -e "${VERDE}✅ PAREAMENTO CONCLUÍDO${RESET}"
 
-echo -e "${VERDE}✅ PAREAMENTO FEITO — AGORA CONECTANDO...${RESET}"
+# 🔹 POR ÚLTIMO: PORTA DO CONNECT
+echo -e -n "${BRANCO}3. PORTA DA CONEXÃO FINAL: ${RESET}"
+read P_CON
+
+echo -e "${CIANO}▶ CONECTANDO: adb connect $IP:$P_CON${RESET}"
 adb connect "$IP:$P_CON"
 if [ $? -ne 0 ]; then
-  echo -e "${VERMELHO}❌ FALHA NA CONEXÃO — confira a porta${RESET}"
+  echo -e "${VERMELHO}❌ FALHA NA CONEXÃO${RESET}"
   sleep 3
   continue
 fi
 
-echo -e "${VERDE}✅ CONEXÃO TOTAL LIBERADA!${RESET}"
+echo -e "${VERDE}✅ ACESSO TOTAL LIBERADO!${RESET}"
 sleep 2
 done
 
-# RESTO DA VARREDURA CONTINUA IGUAL
+# RESTO DA VARREDURA COMPLETA
 echo "SCANNER BY SAM - RELATÓRIO" > "$RELATORIO"
 echo "Data: $(date)" >> "$RELATORIO"
 echo "========================================" >> "$RELATORIO"
