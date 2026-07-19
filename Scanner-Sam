@@ -1,3 +1,54 @@
+0)
+clear
+echo -e "${CIANO}════════════ PAREAMENTO DEPURAÇÃO WI-FI ════════════${RESET}"
+echo -e "${AMARELO}⚠️  PRIMEIRO: Abra > Depuração por Wi‑Fi > Parear com código${RESET}"
+echo -e "${AMARELO}   Mantenha essa tela aberta durante todo o processo!${RESET}"
+echo -e ""
+echo -e "${AMARELO}⚠️  ACEITE A PERMISSÃO de depuração na tela${RESET}"
+echo -e -n "   Aperte ENTER quando aceitar: "
+read _
+echo -e ""
+
+# ✅ LÊ O IP AUTOMATICAMENTE DO PRÓPRIO APARELHO
+IP=$(ip -4 addr show wlan0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
+if [ -z "$IP" ]; then
+  echo -e "${VERMELHO}❌ NÃO DETECTEI REDE WI-FI CONECTADA!${RESET}"
+  sleep 2
+  continue
+fi
+
+echo -e "${VERDE}✅ IP DETECTADO AUTOMATICAMENTE: $IP${RESET}"
+echo -e ""
+
+# ✅ SÓ PEDE OS DADOS QUE ESTÃO NA TELA
+echo -e "${BRANCO}1. PORTA ABAIXO DO CÓDIGO DE PAREAMENTO: ${RESET}"
+read P_PAR
+echo -e "${BRANCO}2. CÓDIGO DE 6 DÍGITOS: ${RESET}"
+read COD
+echo -e "${BRANCO}3. PORTA DO ENDEREÇO IP E PORTA: ${RESET}"
+read P_CON
+
+echo -e ""
+echo -e "${CIANO}🔗 EXECUTANDO: adb pair $IP:$P_PAR $COD${RESET}"
+adb pair "$IP:$P_PAR" "$COD"
+if [ $? -ne 0 ]; then
+  echo -e "${VERMELHO}❌ FALHA NO PAREAMENTO — confira porta, código e se a tela está aberta${RESET}"
+  sleep 3
+  continue
+fi
+
+echo -e "${CIANO}🔌 EXECUTANDO: adb connect $IP:$P_CON${RESET}"
+adb connect "$IP:$P_CON"
+if [ $? -ne 0 ]; then
+  echo -e "${VERMELHO}❌ FALHA NA CONEXÃO — confira a porta final${RESET}"
+  sleep 3
+  continue
+fi
+
+echo -e "${VERDE}✅ PAREAMENTO E CONEXÃO FEITOS COM SUCESSO!${RESET}"
+verifica_conexao
+sleep 2
+;;
 #!/data/data/com.termux/files/usr/bin/sh
 
 # ==================================================
