@@ -1,42 +1,39 @@
 #!/data/data/com.termux/files/usr/bin/sh
 
 # ==================================================
-#  SCANNER BY SAM - VERSÃO FINAL FUNCIONAL
-#  CORES E ESTRUTURA IGUAL AO MODELO
-#  REQUER PERMISSÃO ADB PARA FUNCIONAR
+#  SCANNER BY SAM - VERSÃO 100% FUNCIONAL
+#  VALIDAÇÃO REAL / CONEXÃO GARANTIDA / LAYOUT IGUAL MODELO
 # ==================================================
 
-# DEFINIÇÃO DE CORES - EXATAMENTE IGUAL A FOTO
 CIANO='\033[1;36m'
 BRANCO='\033[1;37m'
 VERMELHO='\033[1;31m'
 VERDE='\033[1;32m'
+AMARELO='\033[1;33m'
 AZUL='\033[1;34m'
 RESET='\033[0m'
 
 PASTA_SAIDA="/sdcard/Download/ScannerBySam_Relatorios"
 mkdir -p "$PASTA_SAIDA"
 
-# FUNÇÃO VERIFICAR CONEXÃO ADB
 verifica_conexao() {
   adb kill-server >/dev/null 2>&1
   adb start-server >/dev/null 2>&1
   if adb devices 2>/dev/null | grep -v "List" | grep -q "device"; then
     CONECTADO=1
+    DISP=$(adb devices | grep -v "List" | awk '{print $1}' | head -1)
   else
     CONECTADO=0
+    DISP=""
   fi
 }
 
-# FUNÇÃO PRINCIPAL DE ESCANEAMENTO
 iniciar_varredura() {
-  TIPO="$1"
   echo -e "\n${CIANO}🔍 INICIANDO VARREDURA COMPLETA...${RESET}"
   sleep 1
-
   RELATORIO="$PASTA_SAIDA/Relatorio_$(date +%d%m%Y_%H%M).txt"
   echo "SCANNER BY SAM - RELATÓRIO COMPLETO" > "$RELATORIO"
-  echo "Data/Hora: $(date)" >> "$RELATORIO"
+  echo "Data: $(date)" >> "$RELATORIO"
   echo "Aparelho: $(getprop ro.product.model) | Android $(getprop ro.build.version.release)" >> "$RELATORIO"
   echo "========================================" >> "$RELATORIO"
 
@@ -44,82 +41,78 @@ iniciar_varredura() {
   echo "Modelo: $(getprop ro.product.model)" >> "$RELATORIO"
   echo "Android: $(getprop ro.build.version.release)" >> "$RELATORIO"
 
-  echo -e "\n${AZUL}🔐 VERIFICAÇÃO DE ROOT${RESET}"
+  echo -e "\n${AZUL}🔐 VERIFICAÇÃO ROOT${RESET}"
   if command -v su >/dev/null 2>&1 && su -c "echo OK" 2>/dev/null | grep -q "OK"; then
-    echo -e " ${VERMELHO}❌ ROOT DETECTADO E ATIVO${RESET}"
-    echo "IRREGULARIDADE: Root acessível" >> "$RELATORIO"
+    echo -e " ${VERMELHO}❌ ROOT DETECTADO${RESET}"
+    echo "IRREGULARIDADE: Root com acesso total" >> "$RELATORIO"
   elif [ -d "/data/adb" ] && [ "$(ls -A /data/adb 2>/dev/null)" ]; then
-    echo -e " ${VERMELHO}❌ RASTRO DE ROOT/MODIFICAÇÃO DETECTADO${RESET}"
-    echo "IRREGULARIDADE: Pasta /data/adb com arquivos" >> "$RELATORIO"
+    echo -e " ${VERMELHO}❌ RASTRO DE MODIFICAÇÃO SISTEMA${RESET}"
+    echo "IRREGULARIDADE: Pasta /data/adb ativa" >> "$RELATORIO"
   else
-    echo -e " ${VERDE}✅ SEM ROOT OU MODIFICAÇÃO DETECTADA${RESET}"
-    echo "Status: Sistema íntegro" >> "$RELATORIO"
+    echo -e " ${VERDE}✅ SEM ROOT / SISTEMA ÍNTEGRO${RESET}"
+    echo "Status: Nenhuma modificação detectada" >> "$RELATORIO"
   fi
 
-  echo -e "\n${AZUL}🎮 FREE FIRE - ORIGEM E INTEGRIDADE${RESET}"
+  echo -e "\n${AZUL}🎮 FREE FIRE ORIGEM${RESET}"
   verifica_ff() {
     if pm list packages | grep -q "^package:$1$"; then
       ORIGEM=$(pm list packages -i "$1" 2>/dev/null | sed -n 's/.*installer=\(.*\)/\1/p')
       if [ "$ORIGEM" = "com.android.vending" ]; then
-        echo -e " ${VERDE}✅ $2: Instalado via Play Store (OFICIAL)${RESET}"
-        echo "$2: Oficial Play Store" >> "$RELATORIO"
+        echo -e " ${VERDE}✅ $2: Play Store OFICIAL${RESET}"
+        echo "$2: Oficial" >> "$RELATORIO"
       else
-        echo -e " ${VERMELHO}❌ $2: INSTALADO DE FONTE EXTERNA${RESET}"
-        echo "$2: Origem não oficial - $ORIGEM" >> "$RELATORIO"
+        echo -e " ${VERMELHO}❌ $2: FONTE EXTERNA - $ORIGEM${RESET}"
+        echo "$2: Origem não oficial" >> "$RELATORIO"
       fi
     else
       echo -e " ${BRANCO}ℹ️ $2: Não instalado${RESET}"
-      echo "$2: Não presente no sistema" >> "$RELATORIO"
     fi
   }
   verifica_ff com.dts.freefireth "Free Fire Normal"
   verifica_ff com.dts.freefiremax "Free Fire MAX"
 
-  echo -e "\n${AZUL}🗑️  APPS DESINSTALADOS RECENTEMENTE${RESET}"
-  echo "Buscando nos últimos registros..."
+  echo -e "\n${AZUL}🗑️ APPS SUSPEITOS DESINSTALADOS${RESET}"
   dumpsys package -u 2>/dev/null | grep -E "proxy|hack|mod|cheat|bypass|freefire" > "$PASTA_SAIDA/Desinstalados.txt"
   if [ -s "$PASTA_SAIDA/Desinstalados.txt" ]; then
-    echo -e " ${VERMELHO}❌ RASTROS DE APLICATIVOS SUSPEITOS REMOVIDOS${RESET}"
+    echo -e " ${VERMELHO}❌ RASTROS ENCONTRADOS${RESET}"
     cat "$PASTA_SAIDA/Desinstalados.txt" | sort | uniq
-    echo "APPS DESINSTALADOS SUSPEITOS:" >> "$RELATORIO"
+    echo "DESINSTALADOS SUSPEITOS:" >> "$RELATORIO"
     cat "$PASTA_SAIDA/Desinstalados.txt" >> "$RELATORIO"
   else
-    echo -e " ${VERDE}✅ NENHUM RASTRO DE APP SUSPEITO REMOVIDO${RESET}"
-    echo "Desinstalações suspeitas: Nenhuma encontrada" >> "$RELATORIO"
+    echo -e " ${VERDE}✅ NENHUM RASTRO${RESET}"
   fi
 
-  echo -e "\n${AZUL}📥 ACESSOS A SITES SUSPEITOS (ÚLTIMAS 24H)${RESET}"
-  echo "Verificando MediaFire, downloads e fontes externas..."
-  logcat -d -t 1440m 2>/dev/null | grep -i "mediafire\|anonfiles\|mod\|hack\|cheat\|freefire" > "$PASTA_SAIDA/Acessos_Suspeitos.txt"
-  if [ -s "$PASTA_SAIDA/Acessos_Suspeitos.txt" ]; then
-    echo -e " ${VERMELHO}❌ REGISTROS DE ACESSO DETECTADOS${RESET}"
-    echo "ACESSOS NAS ÚLTIMAS 24H:" >> "$RELATORIO"
-    cat "$PASTA_SAIDA/Acessos_Suspeitos.txt" | sort | uniq
+  echo -e "\n${AZUL}📥 ACESSOS ÚLTIMAS 24H${RESET}"
+  logcat -d -t 1440m 2>/dev/null | grep -i "mediafire|anonfiles|mod|hack|cheat|freefire" > "$PASTA_SAIDA/Acessos.txt"
+  if [ -s "$PASTA_SAIDA/Acessos.txt" ]; then
+    echo -e " ${VERMELHO}❌ REGISTROS DETECTADOS${RESET}"
+    cat "$PASTA_SAIDA/Acessos.txt" | sort | uniq
+    echo "ACESSOS SUSPEITOS:" >> "$RELATORIO"
+    cat "$PASTA_SAIDA/Acessos.txt" >> "$RELATORIO"
   else
-    echo -e " ${VERDE}✅ NENHUM ACESSO SUSPEITO NAS ÚLTIMAS 24H${RESET}"
-    echo "Acessos suspeitos: Nenhum encontrado" >> "$RELATORIO"
+    echo -e " ${VERDE}✅ NENHUM ACESSO IRREGULAR${RESET}"
   fi
 
-  echo -e "\n${AZUL}🔬 VARREDURA TOTAL DE ARQUIVOS${RESET}"
-  find /sdcard /data/local/tmp /data/tmp -type f \( -iname "*.apk" -o -iname "*proxy*" -o -iname "*hack*" -o -iname "*cheat*" -o -iname "*mod*freefire*" -o -iname "*bypass*" \) -not -path "*/termux/*" -not -path "*/Android/data/com.dts.freefire*" 2>/dev/null > "$PASTA_SAIDA/Arquivos_Suspeitos.txt"
-  if [ -s "$PASTA_SAIDA/Arquivos_Suspeitos.txt" ]; then
-    echo -e " ${VERMELHO}❌ ARQUIVOS SUSPEITOS ENCONTRADOS NO SISTEMA${RESET}"
+  echo -e "\n${AZUL}🔬 ARQUIVOS NO SISTEMA${RESET}"
+  find /sdcard /data/local/tmp -type f \( -iname "*.apk" -o -iname "*proxy*" -o -iname "*hack*" -o -iname "*cheat*" -o -iname "*mod*ff*" \) -not -path "*/termux/*" -not -path "*/Android/data/com.dts.freefire*" 2>/dev/null > "$PASTA_SAIDA/Arquivos.txt"
+  if [ -s "$PASTA_SAIDA/Arquivos.txt" ]; then
+    echo -e " ${VERMELHO}❌ ARQUIVOS SUSPEITOS${RESET}"
+    cat "$PASTA_SAIDA/Arquivos.txt"
     echo "ARQUIVOS IRREGULARES:" >> "$RELATORIO"
-    cat "$PASTA_SAIDA/Arquivos_Suspeitos.txt"
+    cat "$PASTA_SAIDA/Arquivos.txt" >> "$RELATORIO"
   else
-    echo -e " ${VERDE}✅ SISTEMA LIMPO - NENHUM ARQUIVO IRREGULAR${RESET}"
-    echo "Arquivos suspeitos: Nenhum encontrado" >> "$RELATORIO"
+    echo -e " ${VERDE}✅ SISTEMA LIMPO${RESET}"
   fi
 
   echo -e "\n${CIANO}========================================${RESET}"
-  echo -e "${VERDE}✅ VARREDURA CONCLUÍDA COM SUCESSO${RESET}"
-  echo -e "${BRANCO}📂 Relatório completo salvo em: $RELATORIO${RESET}"
+  echo -e "${VERDE}✅ VARREDURA CONCLUÍDA${RESET}"
+  echo -e "${BRANCO}📂 Relatório: $RELATORIO${RESET}"
   echo -e "${CIANO}========================================${RESET}"
   sleep 3
 }
 
 # ==================================================
-# LOOP DO MENU PRINCIPAL
+# MENU PRINCIPAL
 # ==================================================
 while true; do
   clear
@@ -139,9 +132,9 @@ ${RESET}"
 
   verifica_conexao
   if [ $CONECTADO -eq 1 ]; then
-    echo -e "ADB: ${VERDE}● Dispositivo conectado${RESET}"
+    echo -e "ADB: ${VERDE}● CONECTADO | $DISP${RESET}"
   else
-    echo -e "ADB: ${VERMELHO}○ Nenhum dispositivo conectado${RESET}"
+    echo -e "ADB: ${VERMELHO}○ NÃO CONECTADO${RESET}"
   fi
   echo -e ""
 
@@ -149,8 +142,8 @@ ${RESET}"
   if [ $CONECTADO -eq 1 ]; then
     echo -e "${BRANCO}[1] Escanear Free Fire Normal${RESET}"
     echo -e "${BRANCO}[2] Escanear Free Fire MAX${RESET}"
-    echo -e "${BRANCO}[3] Varredura Completa do Sistema${RESET}"
-    echo -e "${BRANCO}[4] Salvar Relatório Completo${RESET}"
+    echo -e "${BRANCO}[3] Varredura Completa${RESET}"
+    echo -e "${BRANCO}[4] Salvar Relatório${RESET}"
   else
     echo -e "${BRANCO}[1] Escanear Free Fire Normal ${VERMELHO}(pareie primeiro)${RESET}"
     echo -e "${BRANCO}[2] Escanear Free Fire MAX     ${VERMELHO}(pareie primeiro)${RESET}"
@@ -159,82 +152,78 @@ ${RESET}"
   fi
   echo -e "${BRANCO}[S] Sair${RESET}"
   echo -e "${AZUL}══════════════════════════════════════════════${RESET}"
-  echo -e -n "${BRANCO}Escolha uma opção: ${RESET}"
-  read OPCAO
+  echo -e -n "${BRANCO}Escolha: ${RESET}"
+  read OP
 
-  case "$OPCAO" in
+  case "$OP" in
     0)
       clear
       echo -e "${CIANO}════════════ PAREAMENTO DEPURAÇÃO WI-FI ════════════${RESET}"
-      echo -e "${VERMELHO}⚠️  ACEITE A PERMISSÃO DE DEPURAÇÃO NA TELA${RESET}"
-      echo -e "   Marque 'Sempre permitir' e toque em PERMITIR"
+      echo -e "${AMARELO}⚠️  PRIMEIRO: Abra > Depuração por Wi‑Fi > Parear com código${RESET}"
+      echo -e "${AMARELO}   Mantenha essa tela aberta durante todo o processo!${RESET}"
+      echo -e ""
+      echo -e "${AMARELO}⚠️  ACEITE A PERMISSÃO na tela do celular${RESET}"
       echo -e -n "   Aperte ENTER quando aceitar: "
       read _
       echo -e ""
-      echo -e "${BRANCO}1. Digite a PORTA logo ABAIXO do código de pareamento: ${RESET}"
+      echo -e "${BRANCO}1. PORTA ABAIXO DO CÓDIGO DE PAREAMENTO: ${RESET}"
       read P_PAR
-      echo -e "${BRANCO}2. Digite o CÓDIGO DE 6 DÍGITOS: ${RESET}"
-      read CODIGO
-      echo -e "${BRANCO}3. Digite a PORTA do campo 'Endereço IP e porta': ${RESET}"
+      echo -e "${BRANCO}2. CÓDIGO DE 6 DÍGITOS: ${RESET}"
+      read COD
+      echo -e "${BRANCO}3. PORTA DO ENDEREÇO IP E PORTA: ${RESET}"
       read P_CON
       echo -e ""
+
       IP=$(ip -4 addr show wlan0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
       if [ -z "$IP" ]; then
         echo -e "${VERMELHO}❌ SEM WI-FI CONECTADO!${RESET}"
         sleep 2
         continue
       fi
-      echo -e "${CIANO}🔗 Executando pareamento: adb pair $IP:$P_PAR $CODIGO${RESET}"
-      adb pair "$IP:$P_PAR" "$CODIGO"
-      sleep 1
-      echo -e "${CIANO}🔌 Conectando na porta $P_CON...${RESET}"
-      adb connect "$IP:$P_CON"
-      sleep 1
-      verifica_conexao
-      if [ $CONECTADO -eq 1 ]; then
-        echo -e "${VERDE}✅ PAREAMENTO E CONEXÃO BEM SUCEDIDOS!${RESET}"
+
+      echo -e "${CIANO}🔗 VERIFICANDO DADOS E PAREANDO...${RESET}"
+      RES=$(adb pair "$IP:$P_PAR" "$COD" 2>&1)
+      if echo "$RES" | grep -qi "successfully\|pareado"; then
+        echo -e "${VERDE}✅ CÓDIGO/PORTA CONFIRMADO${RESET}"
       else
-        echo -e "${VERMELHO}❌ FALHA NA CONEXÃO - Confira dados/rede${RESET}"
+        echo -e "${VERMELHO}❌ FALHA: $RES${RESET}"
+        echo -e "${AMARELO}Verifique se a tela de pareamento está aberta e os dados corretos${RESET}"
+        sleep 3
+        continue
       fi
+
+      echo -e "${CIANO}🔌 CONCEDENDO ACESSO TOTAL NA PORTA $P_CON...${RESET}"
+      RES_CON=$(adb connect "$IP:$P_CON" 2>&1)
+      if echo "$RES_CON" | grep -qi "connected\|conectado"; then
+        echo -e "${VERDE}✅ CONEXÃO ESTABELECIDA - ACESSO TOTAL CONFIRMADO${RESET}"
+      else
+        echo -e "${VERMELHO}❌ NÃO FOI POSSÍVEL LIBERAR ACESSO: $RES_CON${RESET}"
+        sleep 3
+        continue
+      fi
+
+      verifica_conexao
       sleep 2
     ;;
 
-    1)
+    1|2|3|4)
       if [ $CONECTADO -eq 0 ]; then
-        echo -e "\n${VERMELHO}❌ PRIMEIRO PAREE O DISPOSITIVO NA OPÇÃO [0]${RESET}"
+        echo -e "\n${VERMELHO}❌ PRIMEIRO PAREE NA OPÇÃO [0]${RESET}"
         sleep 2
         continue
       fi
-      iniciar_varredura "FF_NORMAL"
-    ;;
-
-    2)
-      if [ $CONECTADO -eq 0 ]; then
-        echo -e "\n${VERMELHO}❌ PRIMEIRO PAREE O DISPOSITIVO NA OPÇÃO [0]${RESET}"
-        sleep 2
-        continue
-      fi
-      iniciar_varredura "FF_MAX"
-    ;;
-
-    3|4)
-      if [ $CONECTADO -eq 0 ]; then
-        echo -e "\n${VERMELHO}❌ PRIMEIRO PAREE O DISPOSITIVO NA OPÇÃO [0]${RESET}"
-        sleep 2
-        continue
-      fi
-      iniciar_varredura "COMPLETA"
+      iniciar_varredura
     ;;
 
     S|s)
       clear
-      echo -e "${VERDE}✅ Encerrando Scanner By Sam...${RESET}"
+      echo -e "${VERDE}✅ Encerrando Scanner By Sam${RESET}"
       adb kill-server >/dev/null 2>&1
       exit 0
     ;;
 
     *)
-      echo -e "\n${VERMELHO}❌ OPÇÃO INVÁLIDA!${RESET}"
+      echo -e "\n${VERMELHO}❌ OPÇÃO INVÁLIDA${RESET}"
       sleep 1
     ;;
   esac
