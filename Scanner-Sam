@@ -3,9 +3,9 @@
 CIANO='\033[1;36m'; BRANCO='\033[1;37m'; VERMELHO='\033[1;31m'; VERDE='\033[1;32m'; AMARELO='\033[1;33m'; AZUL='\033[1;34m'; RESET='\033[0m'
 
 PASTA_SAIDA="/sdcard/Download/ScannerBySam_Total"; mkdir -p "$PASTA_SAIDA"
-RELATORIO="$PASTA_SAIDA/Relatorio_Acesso_Total_$(date +%d%m%Y_%H%M).txt"
+RELATORIO="$PASTA_SAIDA/Relatorio_Completo_$(date +%d%m%Y_%H%M).txt"
 
-while true; do
+# LIMPA E INICIA
 clear
 echo -e "${CIANO}
 ██████╗  ██████╗  █████╗ ███╗   ██╗███████╗
@@ -15,96 +15,83 @@ echo -e "${CIANO}
 ██████╔╝╚██████╔╝██║  ██║██║ ╚████║███████║
 ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝
 ${RESET}"
-echo -e "${CIANO}Coded By: Sam | ACESSO TOTAL VIA ADB${RESET}"
+echo -e "${CIANO}Coded By: Sam | ACESSO TOTAL AUTOMÁTICO${RESET}"
 echo -e "${AZUL}═══════════════════════════════════════════════════════════════${RESET}"
 
+# VERIFICA SE JÁ ESTÁ CONECTADO — SE SIM, PULA TUDO E ESCANEIA
 adb kill-server >/dev/null 2>&1; adb start-server >/dev/null 2>&1
 if adb devices 2>/dev/null | grep -v List | grep -q device; then
-  echo -e "${VERDE}✅ JÁ CONECTADO — INICIANDO VARREDURA${RESET}"
+  echo -e "${VERDE}✅ CONEXÃO JÁ EXISTE — INICIANDO SCAN DIRETO${RESET}"
   sleep 1
-  break
+else
+  # DETECTA IP AUTOMÁTICO — NÃO PEDE NADA
+  IP=$(ip -4 addr show wlan0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
+  [ -z "$IP" ] && IP=$(ip -4 addr show 2>/dev/null | grep -oP '(?<=inet\s)192\.168\.\d+\.\d+' | head -1)
+  [ -z "$IP" ] && { echo -e "${VERMELHO}❌ SEM REDE WIFI — ABRA A DEPURAÇÃO E TENTE NOVAMENTE${RESET}"; exit 1; }
+
+  echo -e "${VERDE}✅ IP DETECTADO: $IP — NÃO PRECISA DIGITAR${RESET}"
+  echo -e "${AMARELO}⚠️  DIGITE APENAS OS DADOS DA TELA DE PAREAMENTO${RESET}"
+  echo -e "${AZUL}═══════════════════════════════════════════════════════════════${RESET}"
+
+  # SÓ PEDE O QUE PRECISA — SEM IP
+  echo -e -n "${BRANCO}1. PORTA PAREAMENTO: ${RESET}"; read P_PAR
+  echo -e -n "${BRANCO}2. CÓDIGO 6 DÍGITOS: ${RESET}"; read COD
+
+  # PAREAMENTO AUTOMÁTICO LOGO APÓS O CÓDIGO
+  echo -e ""
+  echo -e "${CIANO}▶ PAREAMENTO AUTOMÁTICO...${RESET}"
+  adb pair "$IP:$P_PAR" "$COD" || { echo -e "${VERMELHO}❌ FALHA — VERIFIQUE DADOS${RESET}"; exit 1; }
+
+  # PORTA FINAL E CONEXÃO
+  echo -e -n "${BRANCO}3. PORTA CONEXÃO: ${RESET}"; read P_CON
+  echo -e "${CIANO}▶ CONECTANDO...${RESET}"
+  adb connect "$IP:$P_CON" || { echo -e "${VERMELHO}❌ FALHA NA CONEXÃO${RESET}"; exit 1; }
+
+  echo -e "${VERDE}✅ CONEXÃO TOTAL FEITA — INICIANDO SCAN${RESET}"
+  sleep 1
 fi
 
-# ✅ DETECTA O IP AUTOMÁTICO (IGNORA ERRO, PEGA O IP DA REDE LOCAL)
-IP=$(ip -4 addr show wlan0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
-if [ -z "$IP" ]; then
-  IP=$(ip -4 addr show 2>/dev/null | grep -oP '(?<=inet\s)192\.168\.\d+\.\d+' | head -1)
-fi
-if [ -z "$IP" ]; then
-  echo -e "${VERMELHO}❌ NÃO DETECTOU IP — DIGITE MANUAL: ${RESET}"
-  read IP
-fi
-echo -e "${VERDE}✅ IP DETECTADO AUTOMATICAMENTE: $IP${RESET}"
-echo -e "${AZUL}═══════════════════════════════════════════════════════════════${RESET}"
-
-# 🔹 SÓ PEDE O QUE VOCÊ QUER
-echo -e -n "${BRANCO}1. PORTA DO PAREAMENTO: ${RESET}"
-read P_PAR
-
-echo -e -n "${BRANCO}2. CÓDIGO DE 6 DÍGITOS: ${RESET}"
-read COD
-
-# ⚡ ASSIM QUE TERMINAR O CÓDIGO, JÁ FAZ O PAREAMENTO AUTOMÁTICO
-echo -e ""
-echo -e "${CIANO}▶ EXECUTANDO PAREAMENTO AUTOMÁTICO: adb pair $IP:$P_PAR $COD${RESET}"
-adb pair "$IP:$P_PAR" "$COD"
-if [ $? -ne 0 ]; then
-  echo -e "${VERMELHO}❌ FALHA NO PAREAMENTO — confira dados${RESET}"
-  sleep 3
-  continue
-fi
-echo -e "${VERDE}✅ PAREAMENTO CONCLUÍDO${RESET}"
-
-# 🔹 POR ÚLTIMO: PORTA DO CONNECT
-echo -e -n "${BRANCO}3. PORTA DA CONEXÃO FINAL: ${RESET}"
-read P_CON
-
-echo -e "${CIANO}▶ CONECTANDO: adb connect $IP:$P_CON${RESET}"
-adb connect "$IP:$P_CON"
-if [ $? -ne 0 ]; then
-  echo -e "${VERMELHO}❌ FALHA NA CONEXÃO${RESET}"
-  sleep 3
-  continue
-fi
-
-echo -e "${VERDE}✅ ACESSO TOTAL LIBERADO!${RESET}"
-sleep 2
-done
-
-# RESTO DA VARREDURA COMPLETA
-echo "SCANNER BY SAM - RELATÓRIO" > "$RELATORIO"
+# ==============================================
+# DIRETO AO SCAN — NENHUMA PERGUNTA A MAIS
+# ==============================================
+echo "SCANNER BY SAM — RELATÓRIO COMPLETO" > "$RELATORIO"
 echo "Data: $(date)" >> "$RELATORIO"
 echo "========================================" >> "$RELATORIO"
 
-echo -e "\n${AZUL}📱 DADOS APARELHO${RESET}"
+echo -e "\n${AZUL}📱 DADOS COMPLETOS DO APARELHO${RESET}"
 MODELO=$(adb shell getprop ro.product.model)
 MARCA=$(adb shell getprop ro.product.brand)
 ANDROID=$(adb shell getprop ro.build.version.release)
 SERIAL=$(adb shell getprop ro.serialno)
-HWID=$(adb shell getprop ro.boot.hwid 2>/dev/null||adb shell getprop ro.hardware)
+HWID=$(adb shell getprop ro.boot.hwid 2>/dev/null || adb shell getprop ro.hardware)
 
 echo "Marca: $MARCA" >> "$RELATORIO"; echo "Modelo: $MODELO" >> "$RELATORIO"
 echo "Android: $ANDROID" >> "$RELATORIO"; echo "Série: $SERIAL" >> "$RELATORIO"; echo "HWID: $HWID" >> "$RELATORIO"
 echo -e " ${BRANCO}$MARCA | $MODELO | Android $ANDROID"
 echo -e " ${BRANCO}Série: $SERIAL | HWID: $HWID"
 
-echo -e "\n${AZUL}🔐 VERIFICAÇÃO SISTEMA${RESET}"
-if adb shell su -c "echo OK" 2>/dev/null|grep -q OK; then echo -e " ${VERMELHO}❌ ROOT${RESET}"; echo "IRREGULAR: Root" >> "$RELATORIO"
-elif adb shell ls /data/adb 2>/dev/null|grep -q .; then echo -e " ${VERMELHO}❌ MODIFICAÇÃO${RESET}"; echo "IRREGULAR: /data/adb" >> "$RELATORIO"
-else echo -e " ${VERDE}✅ ORIGINAL${RESET}"; fi
+echo -e "\n${AZUL}🔐 VERIFICAÇÃO DE SISTEMA${RESET}"
+if adb shell su -c "echo OK" 2>/dev/null | grep -q OK; then
+  echo -e " ${VERMELHO}❌ ROOT DETECTADO${RESET}"; echo "IRREGULAR: Root ativo" >> "$RELATORIO"
+elif adb shell ls /data/adb 2>/dev/null | grep -q .; then
+  echo -e " ${VERMELHO}❌ MODIFICAÇÃO DETECTADA${RESET}"; echo "IRREGULAR: /data/adb presente" >> "$RELATORIO"
+else
+  echo -e " ${VERDE}✅ SISTEMA ORIGINAL${RESET}"
+fi
 
-echo -e "\n${AZUL}🎮 FREE FIRE${RESET}"
-verifica_ff(){ if adb shell pm list packages 2>/dev/null|grep -q "^package:$1$"; then ORIGEM=$(adb shell pm list packages -i "$1" 2>/dev/null|sed -n 's/.*installer=\(.*\)/\1/p'); [ "$ORIGEM" = "com.android.vending" ]&&echo -e " ${VERDE}✅ $2 OFICIAL${RESET}"||echo -e " ${VERMELHO}❌ $2 EXTERNO${RESET}"; fi; }
+echo -e "\n${AZUL}🎮 FREE FIRE — ORIGEM${RESET}"
+verifica_ff(){ if adb shell pm list packages 2>/dev/null | grep -q "^package:$1$"; then ORIGEM=$(adb shell pm list packages -i "$1" 2>/dev/null | sed -n 's/.*installer=\(.*\)/\1/p'); [ "$ORIGEM" = "com.android.vending" ] && echo -e " ${VERDE}✅ $2 OFICIAL${RESET}" || echo -e " ${VERMELHO}❌ $2 EXTERNO${RESET}"; fi; }
 verifica_ff com.dts.freefireth "Normal"; verifica_ff com.dts.freefiremax "MAX"
 
-echo -e "\n${AZUL}🔬 RASTROS E LOGS${RESET}"
-adb shell dumpsys package -u 2>/dev/null|grep -E "proxy|hack|mod|cheat|bypass|freefire">"$PASTA_SAIDA/Rastros.txt"||true
-[ -s "$PASTA_SAIDA/Rastros.txt" ]&&echo -e " ${VERMELHO}❌ ENCONTRADOS${RESET}"||echo -e " ${VERDE}✅ NENHUM${RESET}"
-adb shell logcat -d -t 60m 2>/dev/null|head -n 100>"$PASTA_SAIDA/Logs.txt"||true
-adb shell bugreport --print 2>/dev/null|head -n 150>"$PASTA_SAIDA/BugReport.txt"||true
-echo -e " ${BRANCO}📄 Dados salvos${RESET}"
+echo -e "\n${AZUL}🔬 RASTROS, LOGS E BUG REPORT${RESET}"
+adb shell dumpsys package -u 2>/dev/null | grep -E "proxy|hack|mod|cheat|bypass|freefire" > "$PASTA_SAIDA/Rastros.txt" || true
+[ -s "$PASTA_SAIDA/Rastros.txt" ] && echo -e " ${VERMELHO}❌ RASTROS ENCONTRADOS${RESET}" || echo -e " ${VERDE}✅ NENHUM RASTRO${RESET}"
+
+adb shell logcat -d -t 60m 2>/dev/null | head -n 100 > "$PASTA_SAIDA/Logs.txt" || true
+adb shell bugreport --print 2>/dev/null | head -n 150 > "$PASTA_SAIDA/BugReport.txt" || true
+echo -e " ${BRANCO}📄 Todos os dados salvos${RESET}"
 
 echo -e "\n${CIANO}═══════════════════════════════════════════════════════════════${RESET}"
-echo -e "${VERDE}✅ CONCLUÍDO COM ACESSO TOTAL${RESET}"
-echo -e "${BRANCO}📂 Pasta: $PASTA_SAIDA${RESET}"
+echo -e "${VERDE}✅ SCAN CONCLUÍDO COM ACESSO TOTAL${RESET}"
+echo -e "${BRANCO}📂 Relatório: $PASTA_SAIDA${RESET}"
 echo -e "${CIANO}═══════════════════════════════════════════════════════════════${RESET}"
