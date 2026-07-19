@@ -5,83 +5,125 @@ CIANO='\033[1;36m'; BRANCO='\033[1;37m'; VERMELHO='\033[1;31m'; VERDE='\033[1;32
 PASTA_SAIDA="/sdcard/Download/ScannerBySam_Total"; mkdir -p "$PASTA_SAIDA"
 RELATORIO="$PASTA_SAIDA/Relatorio_Acesso_Total_$(date +%d%m%Y_%H%M).txt"
 
+while true; do
+clear
 echo -e "${CIANO}
-   ███████╗ ██████╗  █████╗ ███╗   ██╗███████╗
-   ██╔════╝██╔════╝ ██╔══██╗████╗  ██║██╔════╝
-   ███████╗██║  ███╗███████║██╔██╗ ██║███████║
-   ╚════██║██║   ██║██╔══██║██║╚██╗██║╚════██║
-   ███████║╚██████╔╝██║  ██║██║ ╚████║███████║
-   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝
+██████╗  ██████╗  █████╗ ███╗   ██╗███████╗
+██╔══██╗██╔════╝ ██╔══██╗████╗  ██║██╔════╝
+██████╔╝██║  ███╗███████║██╔██╗ ██║███████║
+██╔══██╗██║   ██║██╔══██║██║╚██╗██║╚════██║
+██████╔╝╚██████╔╝██║  ██║██║ ╚████║███████║
+╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝
 ${RESET}"
 echo -e "${CIANO}Coded By: Sam | ACESSO TOTAL VIA ADB${RESET}"
 echo -e "${AZUL}═══════════════════════════════════════════════════════════════${RESET}"
 
-# VERIFICA SE JÁ ESTÁ CONECTADO
 adb kill-server >/dev/null 2>&1; adb start-server >/dev/null 2>&1
 if adb devices 2>/dev/null | grep -v List | grep -q device; then
-  echo -e "${VERDE}✅ JÁ COM ACESSO TOTAL CONFIRMADO${RESET}"
-else
-  echo -e "${AMARELO}⚠️  PRIMEIRA VEZ: PAREIE UMA VEZ SÓ PARA LIBERAR ACESSO TOTAL${RESET}"
-  echo -e "${AMARELO}   Abra > Depuração Wi‑Fi > Parear com código${RESET}"
-  echo -e "${AZUL}═══════════════════════════════════════════════════════════════${RESET}"
-  sleep 2
-
-  IP=$(ip -4 addr show | grep -oP '(?<=inet\s)192\.168\.\d+\.\d+' | head -1)
-  [ -z "$IP" ] && { echo -e "${VERMELHO}❌ SEM WI‑FI${RESET}"; exit 1; }
-  echo -e "${VERDE}✅ IP DETECTADO: $IP${RESET}"
-  echo -e ""
-  echo -e "${BRANCO}1. PORTA PAREAMENTO: ${RESET}"; read P_PAR
-  echo -e "${BRANCO}2. CÓDIGO 6 DÍGITOS: ${RESET}"; read COD
-  echo -e "${BRANCO}3. PORTA CONEXÃO: ${RESET}"; read P_CON
-
-  adb pair "$IP:$P_PAR" "$COD" || { echo -e "${VERMELHO}❌ FALHA NO PAREAMENTO${RESET}"; exit 1; }
-  adb connect "$IP:$P_CON" || { echo -e "${VERMELHO}❌ FALHA NA CONEXÃO${RESET}"; exit 1; }
-  echo -e "${VERDE}✅ ACESSO TOTAL LIBERADO — NÃO PRECISA MAIS PAREAR${RESET}"
-  sleep 2
+  echo -e "${VERDE}✅ JÁ CONECTADO — INICIANDO VARREDURA${RESET}"
+  sleep 1
+  break
 fi
 
+echo -e "${AMARELO}⚠️  PAREAMENTO OBRIGATÓRIO (1ª VEZ)${RESET}"
+echo -e "${AMARELO}   Abra: Config > Opções Desenvolvedor > Depuração Wi‑Fi${RESET}"
+echo -e "${AMARELO}   Clique: Parear dispositivo com código${RESET}"
+echo -e "${AMARELO}   Digite abaixo os dados que aparecem na tela:${RESET}"
+echo -e "${AZUL}═══════════════════════════════════════════════════════════════${RESET}"
+echo -e -n "${BRANCO}IP EXATO DA TELA (ex: 192.168.0.2): ${RESET}"
+read IP
+echo -e -n "${BRANCO}PORTA ABAIXO DO CÓDIGO: ${RESET}"
+read P_PAR
+echo -e -n "${BRANCO}CÓDIGO DE 6 DÍGITOS: ${RESET}"
+read COD
+echo -e -n "${BRANCO}PORTA DO ENDEREÇO IP: ${RESET}"
+read P_CON
+
+echo -e ""
+echo -e "${CIANO}▶ EXECUTANDO: adb pair $IP:$P_PAR $COD${RESET}"
+adb pair "$IP:$P_PAR" "$COD"
+if [ $? -ne 0 ]; then
+  echo -e "${VERMELHO}❌ ERRO NO PAREAMENTO — confira os dados${RESET}"
+  sleep 3
+  continue
+fi
+
+echo -e "${CIANO}▶ EXECUTANDO: adb connect $IP:$P_CON${RESET}"
+adb connect "$IP:$P_CON"
+if [ $? -ne 0 ]; then
+  echo -e "${VERMELHO}❌ ERRO NA CONEXÃO — confira a porta${RESET}"
+  sleep 3
+  continue
+fi
+
+echo -e "${VERDE}✅ CONEXÃO TOTAL ESTABELECIDA!${RESET}"
+sleep 2
+done
+
 # ==============================================
-# AGORA PEGA TUDO COM PERMISSÃO DO ADB
+# VARREDURA COMPLETA COM PERMISSÃO ADB
 # ==============================================
-echo "SCANNER BY SAM - ACESSO TOTAL" > "$RELATORIO"
-echo "Data: $(date)" >> "$RELATORIO"
+echo "SCANNER BY SAM - RELATÓRIO COMPLETO" > "$RELATORIO"
+echo "Data/Hora: $(date)" >> "$RELATORIO"
 echo "========================================" >> "$RELATORIO"
 
-echo -e "\n${AZUL}📱 DADOS COMPLETOS (VIA ADB)${RESET}"
+echo -e "\n${AZUL}📱 DADOS COMPLETOS DO APARELHO${RESET}"
 MODELO=$(adb shell getprop ro.product.model)
 MARCA=$(adb shell getprop ro.product.brand)
 ANDROID=$(adb shell getprop ro.build.version.release)
 SERIAL=$(adb shell getprop ro.serialno)
 HWID=$(adb shell getprop ro.boot.hwid 2>/dev/null || adb shell getprop ro.hardware)
 
-echo "Marca: $MARCA" >> "$RELATORIO"; echo "Modelo: $MODELO" >> "$RELATORIO"
-echo "Android: $ANDROID" >> "$RELATORIO"; echo "Série: $SERIAL" >> "$RELATORIO"; echo "HWID: $HWID" >> "$RELATORIO"
-echo -e " ${BRANCO}$MARCA | $MODELO | Android $ANDROID"
-echo -e " ${BRANCO}Série: $SERIAL | HWID: $HWID"
+echo "Marca: $MARCA" >> "$RELATORIO"
+echo "Modelo: $MODELO" >> "$RELATORIO"
+echo "Android: $ANDROID" >> "$RELATORIO"
+echo "Nº Série: $SERIAL" >> "$RELATORIO"
+echo "HWID: $HWID" >> "$RELATORIO"
 
-echo -e "\n${AZUL}🔐 VERIFICAÇÃO SISTEMA${RESET}"
+echo -e " ${BRANCO}Marca: $MARCA"
+echo -e " ${BRANCO}Modelo: $MODELO"
+echo -e " ${BRANCO}Android: $ANDROID"
+echo -e " ${BRANCO}Nº Série: $SERIAL"
+echo -e " ${BRANCO}HWID: $HWID"
+
+echo -e "\n${AZUL}🔐 VERIFICAÇÃO DE SISTEMA${RESET}"
 if adb shell su -c "echo OK" 2>/dev/null | grep -q OK; then
-  echo -e " ${VERMELHO}❌ ROOT DETECTADO${RESET}"; echo "IRREGULAR: Root" >> "$RELATORIO"
+  echo -e " ${VERMELHO}❌ ROOT DETECTADO${RESET}"
+  echo "IRREGULARIDADE: Root ativo" >> "$RELATORIO"
 elif adb shell ls /data/adb 2>/dev/null | grep -q .; then
-  echo -e " ${VERMELHO}❌ MODIFICAÇÃO DETECTADA${RESET}"; echo "IRREGULAR: /data/adb" >> "$RELATORIO"
+  echo -e " ${VERMELHO}❌ RASTRO DE MODIFICAÇÃO${RESET}"
+  echo "IRREGULARIDADE: /data/adb presente" >> "$RELATORIO"
 else
-  echo -e " ${VERDE}✅ SISTEMA ORIGINAL${RESET}"
+  echo -e " ${VERDE}✅ SISTEMA ORIGINAL / ÍNTEGRO${RESET}"
 fi
 
-echo -e "\n${AZUL}🎮 FREE FIRE${RESET}"
-verifica_ff(){ if adb shell pm list packages 2>/dev/null | grep -q "^package:$1$"; then ORIGEM=$(adb shell pm list packages -i "$1" 2>/dev/null | sed -n 's/.*installer=\(.*\)/\1/p'); [ "$ORIGEM" = "com.android.vending" ] && echo -e " ${VERDE}✅ $2 OFICIAL${RESET}" || echo -e " ${VERMELHO}❌ $2 EXTERNO${RESET}"; fi; }
-verifica_ff com.dts.freefireth "Normal"; verifica_ff com.dts.freefiremax "MAX"
+echo -e "\n${AZUL}🎮 FREE FIRE - ORIGEM${RESET}"
+verifica_ff() {
+  if adb shell pm list packages 2>/dev/null | grep -q "^package:$1$"; then
+    ORIGEM=$(adb shell pm list packages -i "$1" 2>/dev/null | sed -n 's/.*installer=\(.*\)/\1/p')
+    if [ "$ORIGEM" = "com.android.vending" ]; then
+      echo -e " ${VERDE}✅ $2: PLAY STORE OFICIAL${RESET}"
+      echo "$2: Oficial" >> "$RELATORIO"
+    else
+      echo -e " ${VERMELHO}❌ $2: FONTE EXTERNA${RESET}"
+      echo "$2: $ORIGEM" >> "$RELATORIO"
+    fi
+  else
+    echo -e " ${BRANCO}ℹ️ $2: NÃO INSTALADO${RESET}"
+  fi
+}
+verifica_ff com.dts.freefireth "Free Fire Normal"
+verifica_ff com.dts.freefiremax "Free Fire MAX"
 
-echo -e "\n${AZUL}🔬 RASTROS E BUG REPORT${RESET}"
+echo -e "\n${AZUL}🔬 RASTROS E LOGS${RESET}"
 adb shell dumpsys package -u 2>/dev/null | grep -E "proxy|hack|mod|cheat|bypass|freefire" > "$PASTA_SAIDA/Rastros.txt" || true
-[ -s "$PASTA_SAIDA/Rastros.txt" ] && echo -e " ${VERMELHO}❌ RASTROS ENCONTRADOS${RESET}" || echo -e " ${VERDE}✅ NENHUM RASTRO${RESET}"
+[ -s "$PASTA_SAIDA/Rastros.txt" ] && echo -e " ${VERMELHO}❌ RASTROS ENCONTRADOS${RESET}" || echo -e " ${VERDE}✅ NENHUM RASTRO IRREGULAR${RESET}"
 
-# PARTE DO BUG REPORT / LOGS (COM PERMISSÃO ADB)
-adb shell logcat -d -t 60m 2>/dev/null > "$PASTA_SAIDA/Logs.txt" || true
-adb shell bugreport --print 2>/dev/null | head -n 200 > "$PASTA_SAIDA/BugReport_Resumo.txt" || true
+adb shell logcat -d -t 60m 2>/dev/null | head -n 100 > "$PASTA_SAIDA/Logs_Resumo.txt" || true
+adb shell bugreport --print 2>/dev/null | head -n 150 > "$PASTA_SAIDA/BugReport_Resumo.txt" || true
 echo -e " ${BRANCO}📄 Logs e resumo de bugreport salvos${RESET}"
 
 echo -e "\n${CIANO}═══════════════════════════════════════════════════════════════${RESET}"
 echo -e "${VERDE}✅ VARREDURA CONCLUÍDA COM ACESSO TOTAL${RESET}"
-echo -e "${BRANCO}📂 Pasta: $PASTA_SAIDA${RESET}"
+echo -e "${BRANCO}📂 Pasta com arquivos: $PASTA_SAIDA${RESET}"
 echo -e "${CIANO}═══════════════════════════════════════════════════════════════${RESET}"
